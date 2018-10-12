@@ -19,6 +19,14 @@ SECTOR_SIZE = 16
 WALKING_SPEED = 5
 FLYING_SPEED = 15
 
+
+
+#flip which line below is commented out to decide which flying scheme is used,
+#the minecraft flight scheme, or an alternate flying control scheme.
+#FLYING_TYPE = "original"
+FLYING_TYPE = "minecraft"
+
+
 GRAVITY = 20.0
 MAX_JUMP_HEIGHT = 1.0 # About the height of a block.
 # To derive the formula for calculating jump speed, first solve
@@ -459,6 +467,13 @@ class Window(pyglet.window.Window):
         # right, and 0 otherwise.
         self.strafe = [0, 0]
 
+        #0 if the space bar is not held down, 1 if it is.
+        self.space = 0
+
+        #0 if the ctrl key is not held down, 1 if it is.
+        self.ctrl = 0
+
+        
         # Current (x, y, z) position in the world, specified with floats. Note
         # that, perhaps unlike in math class, the y-axis is the vertical axis.
         self.position = (0, 0, 0)
@@ -543,20 +558,28 @@ class Window(pyglet.window.Window):
             strafe = math.degrees(math.atan2(*self.strafe))
             y_angle = math.radians(y)
             x_angle = math.radians(x + strafe)
+
             if self.flying:
-                m = math.cos(y_angle)
-                dy = math.sin(y_angle)
-                if self.strafe[1]:
-                    # Moving left or right.
+                if FLYING_TYPE == "original":    
+                    m = math.cos(y_angle)
+                    dy = math.sin(y_angle)
+                    if self.strafe[1]:
+                        # Moving left or right.
+                        dy = 0.0
+                        m = 1
+                    if self.strafe[0] > 0:
+                        # Moving backwards.
+                        dy *= -1
+                    # When you are flying up or down, you have less left and right
+                    # motion.
+                    dx = math.cos(x_angle) * m
+                    dz = math.sin(x_angle) * m
+                else:
                     dy = 0.0
-                    m = 1
-                if self.strafe[0] > 0:
-                    # Moving backwards.
-                    dy *= -1
-                # When you are flying up or down, you have less left and right
-                # motion.
-                dx = math.cos(x_angle) * m
-                dz = math.sin(x_angle) * m
+                    dx = math.cos(x_angle)
+                    dz = math.sin(x_angle)
+
+                
             else:
                 dy = 0.0
                 dx = math.cos(x_angle)
@@ -613,6 +636,13 @@ class Window(pyglet.window.Window):
             self.dy -= dt * GRAVITY
             self.dy = max(self.dy, -TERMINAL_VELOCITY)
             dy += self.dy * dt
+        else:
+            if FLYING_TYPE == "minecraft":
+                dy = 0.0
+                if self.space == 1:
+                    dy = 5.0 * dt
+                if self.ctrl == 1:
+                    dy = dy - (5.0 * dt)
         # collisions
         x, y, z = self.position
         x, y, z = self.collide((x + dx, y + dy, z + dz), PLAYER_HEIGHT)
@@ -736,8 +766,11 @@ class Window(pyglet.window.Window):
         elif symbol == key.D:
             self.strafe[1] += 1
         elif symbol == key.SPACE:
+            self.space = 1
             if self.dy == 0:
                 self.dy = JUMP_SPEED
+        elif symbol == key.LCTRL:
+            self.ctrl = 1
         elif symbol == key.ESCAPE:
             self.set_exclusive_mouse(False)
         elif symbol == key.TAB:
@@ -764,6 +797,10 @@ class Window(pyglet.window.Window):
             self.strafe[0] -= 1
         elif symbol == key.A:
             self.strafe[1] += 1
+        elif symbol == key.SPACE:
+            self.space = 0
+        elif symbol == key.LCTRL:
+            self.ctrl = 0
         elif symbol == key.D:
             self.strafe[1] -= 1
 
