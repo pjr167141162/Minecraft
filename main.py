@@ -419,9 +419,18 @@ class Model(object):
         add_block() or remove_block() was called with immediate=False
 
         """
-        start = time.clock()
-        while self.queue and time.clock() - start < 1.0 / TICKS_PER_SEC:
-            self._dequeue()
+        #time.clock() deprecated in python3.3, due for removal in 3.8
+        
+        if sys.version_info[0] >= 3:
+            #run this code if running python 3.
+            start = time.process_time()
+            while self.queue and time.process_time() - start < 1.0 / TICKS_PER_SEC:
+                self._dequeue()
+        else:
+            #run this code if using python 2
+            start = time.clock()
+            while self.queue and time.clock() - start < 1.0 / TICKS_PER_SEC:
+                self._dequeue()
 
     def process_entire_queue(self):
         """ Process the entire queue with no breaks.
