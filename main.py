@@ -635,6 +635,8 @@ class Window(pyglet.window.Window):
             # Update your vertical speed: if you are falling, speed up until you
             # hit terminal velocity; if you are jumping, slow down until you
             # start falling.
+            if self.dy == 0 and self.space == 1:
+                self.dy = JUMP_SPEED
             self.dy -= dt * GRAVITY
             self.dy = max(self.dy, -TERMINAL_VELOCITY)
             dy += self.dy * dt
@@ -769,8 +771,6 @@ class Window(pyglet.window.Window):
             self.strafe[1] += 1
         elif symbol == key.SPACE:
             self.space = 1
-            if self.dy == 0:
-                self.dy = JUMP_SPEED
         elif symbol == key.LCTRL:
             self.ctrl = 1
         elif symbol == key.ESCAPE:
