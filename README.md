@@ -88,17 +88,19 @@ See the [wiki](https://github.com/fogleman/Minecraft/wiki) for this project to i
 - S: back
 - A: strafe left
 - D: strafe right
-- E: block picker
 - Mouse: look around
 - Space: jump
 - Tab: toggle flying mode
 
 ### Building
 
-- Selecting type of block to create:
+- Selecting type of block to create(numpad):
     - 1: brick
     - 2: grass
     - 3: sand
+	
+	- E: block picker
+	
 - Mouse left-click: remove block
 - Mouse right-click: create block
 

@@ -1,5 +1,8 @@
 from __future__ import division
 
+from blocks import *
+import block_picker
+
 import sys
 import math
 import random
@@ -11,11 +14,6 @@ from pyglet.gl import *
 from pyglet.graphics import TextureGroup
 from pyglet.window import key, mouse
 
-if sys.version_info[0] >= 3:
-    from tkinter import *
-else:
-    from Tkinter import *
-
 
 TICKS_PER_SEC = 60
 
@@ -26,15 +24,14 @@ WALKING_SPEED = 5
 FLYING_SPEED = 15
 
 
-
 #flip which line below is commented out to decide which flying scheme is used,
 #the minecraft flight scheme, or an alternate flying control scheme.
 #FLYING_TYPE = "original"
 FLYING_TYPE = "minecraft"
 
 
-GRAVITY = 20.0
-MAX_JUMP_HEIGHT = 1.0 # About the height of a block.
+GRAVITY = 15.0
+MAX_JUMP_HEIGHT = 1.3 # About the height of a block.
 # To derive the formula for calculating jump speed, first solve
 #    v_t = v_0 + a * t
 # for the time at which you achieve maximum height, where a is the acceleration
@@ -53,49 +50,30 @@ if sys.version_info[0] >= 3:
 def cube_vertices(x, y, z, n):
     """ Return the vertices of the cube at position x, y, z with size 2*n.
     """
+    a = x-n#prerun the calculations and save the results,
+    b = y+n#this improves performance slightly.
+    c = z-n
+    d = x+n
+    e = z+n
+    f = y-n
     return [
-        x-n,y+n,z-n, x-n,y+n,z+n, x+n,y+n,z+n, x+n,y+n,z-n,  # top
-        x-n,y-n,z-n, x+n,y-n,z-n, x+n,y-n,z+n, x-n,y-n,z+n,  # bottom
-        x-n,y-n,z-n, x-n,y-n,z+n, x-n,y+n,z+n, x-n,y+n,z-n,  # left
-        x+n,y-n,z+n, x+n,y-n,z-n, x+n,y+n,z-n, x+n,y+n,z+n,  # right
-        x-n,y-n,z+n, x+n,y-n,z+n, x+n,y+n,z+n, x-n,y+n,z+n,  # front
-        x+n,y-n,z-n, x-n,y-n,z-n, x-n,y+n,z-n, x+n,y+n,z-n,  # back
+        a,b,c, a,b,e, d,b,e, d,b,c,  # top
+        a,f,c, d,f,c, d,f,e, a,f,e,  # bottom
+        a,f,c, a,f,e, a,b,e, a,b,c,  # left
+        d,f,e, d,f,c, d,b,c, d,b,e,  # right
+        a,f,e, d,f,e, d,b,e, a,b,e,  # front
+        d,f,c, a,f,c, a,b,c, d,b,c,  # back
     ]
 
-
-def tex_coord(x, y, n=4):
-    """ Return the bounding vertices of the texture square.
-    """
-    m = 1.0 / n
-    dx = x * m
-    dy = y * m
-    return dx, dy, dx + m, dy, dx + m, dy + m, dx, dy + m
-
-
-def tex_coords(top, bottom, side):
-    """ Return a list of the texture squares for the top, bottom and side.
-    """
-    top = tex_coord(*top)
-    bottom = tex_coord(*bottom)
-    side = tex_coord(*side)
-    result = []
-    result.extend(top)
-    result.extend(bottom)
-    result.extend(side * 4)
-    return result
 
 
 TEXTURE_PATH = 'texture.png'
 
-GRASS = tex_coords((1, 0), (0, 1), (0, 0))
-SAND = tex_coords((1, 1), (1, 1), (1, 1))
-BRICK = tex_coords((2, 0), (2, 0), (2, 0))
-STONE = tex_coords((2, 1), (2, 1), (2, 1))
-PLANK = tex_coords((3, 0), (3, 0), (3, 0))
-COBBLE = tex_coords((3, 1), (3, 1), (3, 1))
-DIRT = tex_coords((0, 1), (0, 1), (0, 1))
-WOOD = tex_coords((0, 2), (0, 2), (0, 2))
-LEAF = tex_coords((1, 2), (1, 2), (1, 2))
+BEDROCK = tex_coords((3, 3), (3, 3), (3, 3))
+INVENTORY,INVENTORY_NAMES,BLOCKS = get_blocks()
+
+
+
 
 FACES = [
     ( 0, 1, 0),
@@ -168,66 +146,65 @@ class Model(object):
     def _initialize(self):
         """ Initialize the world by placing all the blocks.
         """
-        n = 80  # 1/2 width and height of world
+        n = 120  # 1/2 width and height of world
         s = 1  # step size
         y = 0  # initial y height
         for x in xrange(-n, n + 1, s):
             for z in xrange(-n, n + 1, s):
                 # create a layer stone an grass everywhere.
-                self.add_block((x, y - 2, z), GRASS, immediate=False)
-                self.add_block((x, y - 3, z), DIRT, immediate=False)
-                self.add_block((x, y - 4, z), DIRT, immediate=False)
-                self.add_block((x, y - 5, z), STONE, immediate=False)
-                if x in (-n, n) or z in (-n, n):
-                    # create outer walls.
-                    for dy in xrange(-2, 3):
-                        self.add_block((x, y + dy, z), STONE, immediate=False)
+                self.add_block((x, y - 2, z), BLOCKS["GRASS"], immediate=False)
+                self.add_block((x, y - 3, z), BLOCKS["DIRT"], immediate=False)
+                self.add_block((x, y - 4, z), BLOCKS["DIRT"], immediate=False)
+                for xx in xrange(5,15):
+                    self.add_block((x, y - xx, z), BLOCKS["STONE"], immediate=False)
+                self.add_block((x, y - 15, z), BEDROCK, immediate=False)
 
         # generate the hills randomly
         o = n - 10
-        for _ in xrange(120):
+        for _ in xrange(150):
             a = random.randint(-o, o)  # x position of the hill
             b = random.randint(-o, o)  # z position of the hill
             c = -1  # base of the hill
             h = random.randint(1, 6)  # height of the hill
             s = random.randint(4, 8)  # 2 * s is the side length of the hill
             d = 1  # how quickly to taper off the hills
-            t = random.choice([GRASS, SAND, GRASS,GRASS])#grass is weighted 3 times
+            t = random.choice([BLOCKS["GRASS"], BLOCKS["GRASS"], BLOCKS["SAND"]])#grass is weighted 2 times
             for y in xrange(c, c + h):#                   as heavy as sand.
                 for x in xrange(a - s, a + s + 1):
                     for z in xrange(b - s, b + s + 1):
-                        if (x - a) ** 2 + (z - b) ** 2 > (s + 1) ** 2:
-                            continue
-                        if (x - 0) ** 2 + (z - 0) ** 2 < 5 ** 2:
-                            continue
                         self.add_block((x, y, z), t, immediate=False)
                 s -= d  # decrement side lenth so hills taper off
-        #generate trees randomly.
-        for _ in xrange(45):
+        #generate plants randomly.
+        for _ in xrange(150):
             a = random.randint(-o,o)
             b = random.randint(-o,o)
             c = -5
             while (a,c,b)in self.world:
                 c += 1
+            #
+            if self.world[(a,c-1,b)] == BLOCKS["SAND"]:#ensures trees grow on grass.
+                for x in xrange(random.randint(1,3)):
+                    self.add_block((a, c+x, b), BLOCKS["CACTUS"], immediate=False)
+                continue
             #found the top of the land.
 
             #generating trunk.
             for __ in xrange(6):
-                self.add_block((a,c,b),WOOD,immediate=False)
+                self.add_block((a,c,b),BLOCKS["WOOD"],immediate=False)
                 c +=1
             
             c -= 1 #start leaves one level down.
             #layer one of leaves
-            for x in range(a-2,a+3):
-                for y in range(b-2,b+3):
+            for x in xrange(a-2,a+3):
+                for y in xrange(b-2,b+3):
                     if (x,c,y) not in self.world:
-                        self.add_block((x,c,y),LEAF,immediate=False)
+                        self.add_block((x,c,y),BLOCKS["LEAF"],immediate=False)
             c += 1
             #layer 2
-            for x in range(a-1,a+2):
-                for y in range(b-1,b+2):
+            for x in xrange(a-1,a+2):
+                for y in xrange(b-1,b+2):
                     if (x,c,y) not in self.world:
-                        self.add_block((x,c,y),LEAF,immediate=False)
+                        self.add_block((x,c,y),BLOCKS["LEAF"],immediate=False)
             
             
     def hit_test(self, position, vector, max_distance=8):
@@ -484,7 +461,7 @@ class Window(pyglet.window.Window):
         
         # Current (x, y, z) position in the world, specified with floats. Note
         # that, perhaps unlike in math class, the y-axis is the vertical axis.
-        self.position = (0, 0, 0)
+        self.position = (0, 15, 0)#TODO: create a function to place the player on the ground, whatever height that may be at.
 
         # First element is rotation of the player in the x-z plane (ground
         # plane) measured from the z-axis down. The second is the rotation
@@ -504,8 +481,8 @@ class Window(pyglet.window.Window):
         self.dy = 0
 
         # A list of blocks the player can place. Hit num keys to cycle.
-        self.inventory = [BRICK, GRASS, SAND,PLANK,COBBLE,DIRT,WOOD,LEAF]
-        self.inventory_names=["BRICK","GRASS","SAND","PLANK","COBBLE","DIRT","WOOD","LEAF"]
+        self.inventory=INVENTORY
+        self.inventory_names=INVENTORY_NAMES
 
         # The current block the user can place. Hit num keys to cycle.
         self.block = self.inventory[0]
@@ -719,7 +696,7 @@ class Window(pyglet.window.Window):
                     self.model.add_block(previous, self.block)
             elif button == pyglet.window.mouse.LEFT and block:
                 texture = self.model.world[block]
-                if texture != STONE:
+                if texture != BEDROCK:
                     self.model.remove_block(block)
         else:
             self.set_exclusive_mouse(True)
@@ -753,7 +730,7 @@ class Window(pyglet.window.Window):
         if symbol == key.W:
             self.strafe[0] -= 1
         elif symbol == key.E:
-            self.block = block_picker(self.block,self.inventory,self.inventory_names)
+            self.block = block_picker.pick(self.block,self.inventory,self.inventory_names)
         elif symbol == key.S:
             self.strafe[0] += 1
         elif symbol == key.A:
@@ -768,6 +745,7 @@ class Window(pyglet.window.Window):
             self.set_exclusive_mouse(False)
         elif symbol == key.TAB:
             self.flying = not self.flying
+            self.dy = 0.0
         elif symbol in self.num_keys:
             index = (symbol - self.num_keys[0]) % len(self.inventory)
             self.block = self.inventory[index]
@@ -879,66 +857,6 @@ class Window(pyglet.window.Window):
         glColor3d(0, 0, 0)
         self.reticle.draw(GL_LINES)
 
-class ListBoxChoice(object):
-    def __init__(self, title, message, list):
-        self.root = Tk()
-        master = self.root
-        self.master = master
-        self.value = None
-        self.list = list[:]
-        
-        self.modalPane = Toplevel(self.master)
-
-        self.modalPane.transient(self.master)
-        self.modalPane.grab_set()
-
-        self.modalPane.bind("<Return>", self._choose)
-        self.modalPane.bind("<Escape>", self._cancel)
-
-        if title:
-            self.modalPane.title(title)
-
-        if message:
-            Label(self.modalPane, text=message).pack(padx=5, pady=5)
-
-        listFrame = Frame(self.modalPane)
-        listFrame.pack(side=TOP, padx=5, pady=5)
-        
-        scrollBar = Scrollbar(listFrame)
-        scrollBar.pack(side=RIGHT, fill=Y)
-        self.listBox = Listbox(listFrame, selectmode=SINGLE)
-        self.listBox.pack(side=LEFT, fill=Y)
-        scrollBar.config(command=self.listBox.yview)
-        self.listBox.config(yscrollcommand=scrollBar.set)
-        for item in self.list:
-            self.listBox.insert(END, item)
-
-        buttonFrame = Frame(self.modalPane)
-        buttonFrame.pack(side=BOTTOM)
-
-        chooseButton = Button(buttonFrame, text="Choose", command=self._choose)
-        chooseButton.pack()
-
-        cancelButton = Button(buttonFrame, text="Cancel", command=self._cancel)
-        cancelButton.pack(side=RIGHT)
-
-    def _choose(self, event=None):
-        try:
-            firstIndex = self.listBox.curselection()[0]
-            self.value = self.list[int(firstIndex)]
-        except IndexError:
-            self.value = None
-        self.modalPane.destroy()
-        self.root.destroy()
-
-    def _cancel(self, event=None):
-        self.modalPane.destroy()
-        self.root.destroy()
-        
-    def returnValue(self):
-        self.master.wait_window(self.modalPane)
-        return self.value
-
 
 def setup_fog():
     """ Configure the OpenGL fog properties.
@@ -957,11 +875,7 @@ def setup_fog():
     glFogf(GL_FOG_START, 20.0)
     glFogf(GL_FOG_END, 60.0)
 
-def block_picker(current_block,inventory,inventory_names):
-        returnValue = ListBoxChoice("Block Picker", "Pick A Block:", inventory_names).returnValue()
-        if returnValue == None:
-            return current_block
-        return inventory[inventory_names.index(returnValue)]
+
 def setup():
     """ Basic OpenGL configuration.
     """
