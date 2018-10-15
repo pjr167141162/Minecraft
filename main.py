@@ -94,6 +94,8 @@ STONE = tex_coords((2, 1), (2, 1), (2, 1))
 PLANK = tex_coords((3, 0), (3, 0), (3, 0))
 COBBLE = tex_coords((3, 1), (3, 1), (3, 1))
 DIRT = tex_coords((0, 1), (0, 1), (0, 1))
+WOOD = tex_coords((0, 2), (0, 2), (0, 2))
+LEAF = tex_coords((1, 2), (1, 2), (1, 2))
 
 FACES = [
     ( 0, 1, 0),
@@ -173,7 +175,9 @@ class Model(object):
             for z in xrange(-n, n + 1, s):
                 # create a layer stone an grass everywhere.
                 self.add_block((x, y - 2, z), GRASS, immediate=False)
-                self.add_block((x, y - 3, z), STONE, immediate=False)
+                self.add_block((x, y - 3, z), DIRT, immediate=False)
+                self.add_block((x, y - 4, z), DIRT, immediate=False)
+                self.add_block((x, y - 5, z), STONE, immediate=False)
                 if x in (-n, n) or z in (-n, n):
                     # create outer walls.
                     for dy in xrange(-2, 3):
@@ -188,8 +192,8 @@ class Model(object):
             h = random.randint(1, 6)  # height of the hill
             s = random.randint(4, 8)  # 2 * s is the side length of the hill
             d = 1  # how quickly to taper off the hills
-            t = random.choice([GRASS, SAND, BRICK])
-            for y in xrange(c, c + h):
+            t = random.choice([GRASS, SAND, GRASS,GRASS])#grass is weighted 3 times
+            for y in xrange(c, c + h):#                   as heavy as sand.
                 for x in xrange(a - s, a + s + 1):
                     for z in xrange(b - s, b + s + 1):
                         if (x - a) ** 2 + (z - b) ** 2 > (s + 1) ** 2:
@@ -198,7 +202,34 @@ class Model(object):
                             continue
                         self.add_block((x, y, z), t, immediate=False)
                 s -= d  # decrement side lenth so hills taper off
+        #generate trees randomly.
+        for _ in xrange(45):
+            a = random.randint(-o,o)
+            b = random.randint(-o,o)
+            c = -5
+            while (a,c,b)in self.world:
+                c += 1
+            #found the top of the land.
 
+            #generating trunk.
+            for __ in xrange(6):
+                self.add_block((a,c,b),WOOD,immediate=False)
+                c +=1
+            
+            c -= 1 #start leaves one level down.
+            #layer one of leaves
+            for x in range(a-2,a+3):
+                for y in range(b-2,b+3):
+                    if (x,c,y) not in self.world:
+                        self.add_block((x,c,y),LEAF,immediate=False)
+            c += 1
+            #layer 2
+            for x in range(a-1,a+2):
+                for y in range(b-1,b+2):
+                    if (x,c,y) not in self.world:
+                        self.add_block((x,c,y),LEAF,immediate=False)
+            
+            
     def hit_test(self, position, vector, max_distance=8):
         """ Line of sight search from current position. If a block is
         intersected it is returned, along with the block previously in the line
@@ -473,8 +504,8 @@ class Window(pyglet.window.Window):
         self.dy = 0
 
         # A list of blocks the player can place. Hit num keys to cycle.
-        self.inventory = [BRICK, GRASS, SAND,PLANK,COBBLE,DIRT]
-        self.inventory_names=["BRICK","GRASS","SAND","PLANK","COBBLE","DIRT"]
+        self.inventory = [BRICK, GRASS, SAND,PLANK,COBBLE,DIRT,WOOD,LEAF]
+        self.inventory_names=["BRICK","GRASS","SAND","PLANK","COBBLE","DIRT","WOOD","LEAF"]
 
         # The current block the user can place. Hit num keys to cycle.
         self.block = self.inventory[0]

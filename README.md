@@ -88,6 +88,7 @@ See the [wiki](https://github.com/fogleman/Minecraft/wiki) for this project to i
 - S: back
 - A: strafe left
 - D: strafe right
+- E: block picker
 - Mouse: look around
 - Space: jump
 - Tab: toggle flying mode
